@@ -8,67 +8,102 @@
  *
  *     http://creativecommons.org/publicdomain/zero/1.0/
  */
-package com.tersesystems.logback;
+package com.tersesystems.logback.typesafeconfig;
 
 import ch.qos.logback.core.Context;
 import ch.qos.logback.core.joran.action.Action;
 import ch.qos.logback.core.joran.spi.ActionException;
 import ch.qos.logback.core.joran.spi.InterpretationContext;
-import ch.qos.logback.core.util.OptionHelper;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigRenderOptions;
-import com.typesafe.config.ConfigValue;
+import com.typesafe.config.*;
 import org.xml.sax.Attributes;
 
 import java.io.File;
 import java.util.Map;
 import java.util.Set;
 
+import static com.tersesystems.logback.typesafeconfig.ConfigConstants.*;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
+
 /**
  * Configures properties from a typesafe config object, and places them in local scope, or in the context
  * if "scope"="context" attribute is set.
  */
 public class TypesafeConfigAction extends Action {
-    public static final String LOGBACK = "logback";
 
-    public static final String LOGBACK_TEST = "logback-test";
+    protected String scope = LOCAL_SCOPE;
 
-    public static final String LOGBACK_REFERENCE_CONF = "logback-reference.conf";
+    public String getScope() {
+        return scope;
+    }
 
-    public static final String LOGBACK_DEBUG_PROPERTY = "terse.logback.debug";
-
-    public static final String CONFIG_FILE_PROPERTY = "terse.logback.configurationFile";
-
-    private static final String SCOPE_ATTRIBUTE = "scope";
-
-    private static final String CONTEXT_SCOPE = "context";
+    public void setScope(String scope) {
+        this.scope = scope;
+    }
 
     @Override
     public void begin(InterpretationContext ic, String name, Attributes attributes) throws ActionException {
+        String scope = attributes.getValue(SCOPE_ATTRIBUTE);
+        if (scope != null) {
+            setScope(scope);
+        }
+    }
+
+    private Map<String, String> levelsToMap(ConfigObject levels) {
+        return levels.keySet().stream().collect(
+            toMap(k -> levels.get(k).unwrapped().toString(), identity())
+        );
+    }
+
+    @Override
+    public void end(InterpretationContext ic, String name) throws ActionException {
         Config config = generateConfig(ic.getClass().getClassLoader());
         Context context = ic.getContext();
 
-        Set<Map.Entry<String, ConfigValue>> properties = config.getConfig(ConfigConstants.PROPERTIES_KEY).entrySet();
-        if (isContextScope(attributes)) {
+        // Try to set up the levels as they're important...
+        try {
+            context.putObject(TYPESAFE_CONFIG_CTX_KEY, config);
+        } catch (ConfigException e) {
+            addWarn("Cannot set levels in context!", e);
+        }
+
+        // Try to set up the levels as they're important...
+        try {
+            Map<String, String> levelsMap = levelsToMap(config.getObject(LEVELS_KEY));
+            context.putObject(LEVELS_KEY, levelsMap);
+        } catch (ConfigException e) {
+            addWarn("Cannot set levels in context!", e);
+        }
+
+        Set<Map.Entry<String, ConfigValue>> properties = config.getConfig(PROPERTIES_KEY).entrySet();
+        if (isContextScope()) {
             configureContextScope(config, context, properties);
         } else {
             configureLocalScope(config, ic, properties);
         }
     }
 
-    @Override
-    public void end(InterpretationContext ic, String name) throws ActionException {
-
+    public Object findMappedValue(Config config, String mapping) {
+        try {
+            ConfigObject configObject = config.getObject(mapping);
+            if (configObject == null) {
+                addWarn("A config object exists for " + mapping + " but is null!");
+                return null;
+            }
+            return configObject.unwrapped();
+        } catch (ConfigException e) {
+            addError("Cannot find mapped value using " + mapping, e);
+            return null;
+        }
     }
 
-    private boolean isContextScope(Attributes attributes) {
-       return attributes != null && CONTEXT_SCOPE.equalsIgnoreCase(attributes.getValue(SCOPE_ATTRIBUTE));
+    private boolean isContextScope() {
+       return CONTEXT_SCOPE.equalsIgnoreCase(scope);
     }
 
     public void configureContextScope(Config config, Context lc, Set<Map.Entry<String, ConfigValue>> properties) {
         addInfo("Configuring with context scope");
-        lc.putObject(ConfigConstants.TYPESAFE_CONFIG_CTX_KEY, config);
+        lc.putObject(TYPESAFE_CONFIG_CTX_KEY, config);
         for (Map.Entry<String, ConfigValue> propertyEntry : properties) {
             String key = propertyEntry.getKey();
             String value = propertyEntry.getValue().unwrapped().toString();
@@ -78,7 +113,7 @@ public class TypesafeConfigAction extends Action {
 
     public void configureLocalScope(Config config, InterpretationContext ic,  Set<Map.Entry<String, ConfigValue>> properties) {
         addInfo("Configuring with local scope");
-        ic.getObjectMap().put(ConfigConstants.TYPESAFE_CONFIG_CTX_KEY, config);
+        ic.getObjectMap().put(TYPESAFE_CONFIG_CTX_KEY, config);
 
         for (Map.Entry<String, ConfigValue> propertyEntry : properties) {
             String key = propertyEntry.getKey();

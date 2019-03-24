@@ -23,7 +23,7 @@
 -->
 <configuration>
     <newRule pattern="*/typesafeConfig"
-             actionClass="com.tersesystems.logback.TypesafeConfigAction"/>
+             actionClass="com.tersesystems.logback.typesafeconfig.TypesafeConfigAction"/>
 
     <newRule pattern="*/setLoggerLevels"
              actionClass="com.tersesystems.logback.SetLoggerLevelsAction"/>
