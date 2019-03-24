@@ -81,5 +81,8 @@ public class TypesafeConfigActionTest {
 
         String exportedFoo = loggerContext.getProperty("exportedFoo");
         assertThat(exportedFoo).isEqualTo("bar");
+
+        Object contextObjectFoo = loggerContext.getObject("contextObjectFoo");
+        assertThat(contextObjectFoo).isEqualTo("pathValue");
     }
 }

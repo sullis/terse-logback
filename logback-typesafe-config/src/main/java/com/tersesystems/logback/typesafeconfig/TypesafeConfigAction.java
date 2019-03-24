@@ -98,6 +98,7 @@ public class TypesafeConfigAction extends Action {
     }
 
     private boolean isContextScope() {
+        // ActionUtil.Scope scope = ActionUtil.stringToScope(scopeStr);
        return CONTEXT_SCOPE.equalsIgnoreCase(scope);
     }
 

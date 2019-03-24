@@ -15,7 +15,13 @@
     <newRule pattern="configuration/typesafeConfig"
              actionClass="com.tersesystems.logback.typesafeconfig.TypesafeConfigAction"/>
 
+
+    <newRule pattern="configuration/contextObject"
+             actionClass="com.tersesystems.logback.typesafeconfig.TypesafeConfigObjectMapAction"/>
+
     <typesafeConfig scope="local"/>
+
+    <contextObject name="contextObjectFoo" path="some.random.path"/>
 
     <property scope="context" name="exportedFoo" value="${foo}" />
 
