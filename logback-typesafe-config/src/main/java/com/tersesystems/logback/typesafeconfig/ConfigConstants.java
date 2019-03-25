@@ -35,4 +35,5 @@ public final class ConfigConstants {
 
     public static final String LOCAL_SCOPE = "local";
 
+    public static final String PATH_ATTRIBUTE = "path";
 }
